@@ -10,7 +10,10 @@ import type {
   SiteSettings,
 } from "@/lib/types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR =
+  process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME
+    ? path.join("/tmp", "chimneyserviceguide-data")
+    : path.join(process.cwd(), "data");
 
 type LocalDb = {
   leads: Lead[];
