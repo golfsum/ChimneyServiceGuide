@@ -1,7 +1,7 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { isAdminAuthenticated } from "@/lib/admin/auth";
 import { computeOverview } from "@/lib/analytics/overview";
-import { isFirebaseAdminConfigured } from "@/lib/firebase/admin";
+import { probeFirestore } from "@/lib/firebase/admin";
 import { listLeads } from "@/lib/leads/service";
 import { localGetSettings } from "@/lib/store/local-db";
 import type { Lead } from "@/lib/types";
@@ -17,15 +17,12 @@ export default async function AdminOverviewPage() {
     leads = await listLeads();
   } catch (error) {
     console.error("Admin overview leads failed", error);
-    firestoreWarning =
-      "Could not load leads. Create a Firestore database in Firebase Console (name must be (default) or set FIRESTORE_DATABASE_ID).";
     leads = [];
   }
 
-  if (isFirebaseAdminConfigured() && !leads.length) {
-    firestoreWarning =
-      firestoreWarning ||
-      "Firestore tip: create a database in Firebase Console for this project. Prefer database ID (default). If yours is named default, add Vercel env FIRESTORE_DATABASE_ID=default and redeploy.";
+  const probe = await probeFirestore();
+  if (!probe.ok) {
+    firestoreWarning = `Firestore is not reachable (database "${probe.databaseId}"): ${probe.error}. Create a Firestore DB in Firebase Console, or set FIRESTORE_DATABASE_ID to your DB id (use default or (default)).`;
   }
 
   const settings = await localGetSettings();

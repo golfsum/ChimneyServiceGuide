@@ -112,8 +112,38 @@ export async function getAdminDb(): Promise<Firestore | null> {
   const app = await getAdminApp();
   if (!app) return null;
   const { getFirestore } = await import("firebase-admin/firestore");
-  const databaseId = process.env.FIRESTORE_DATABASE_ID || "(default)";
+  const raw = (process.env.FIRESTORE_DATABASE_ID || "(default)").trim();
+  const databaseId = raw.replace(/^["']|["']$/g, "") || "(default)";
   return getFirestore(app, databaseId);
+}
+
+/** Live check used by admin UI — only warn when Firestore is actually unreachable. */
+export async function probeFirestore(): Promise<{
+  ok: boolean;
+  databaseId: string;
+  error?: string;
+}> {
+  const raw = (process.env.FIRESTORE_DATABASE_ID || "(default)").trim();
+  const databaseId = raw.replace(/^["']|["']$/g, "") || "(default)";
+  if (!hasAdminCredentials()) {
+    return { ok: false, databaseId, error: "Firebase Admin env vars are not set" };
+  }
+  try {
+    const db = await getAdminDb();
+    if (!db) {
+      return {
+        ok: false,
+        databaseId,
+        error: getFirebaseAdminInitError() || "Firebase Admin failed to initialize",
+      };
+    }
+    await db.collection("leads").limit(1).get();
+    return { ok: true, databaseId };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Firestore request failed";
+    return { ok: false, databaseId, error: message };
+  }
 }
 
 export async function getAdminAuth(): Promise<Auth | null> {
